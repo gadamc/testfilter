@@ -7,6 +7,7 @@ import random
 import scipy.signal as sig
 import math
 import numpy as np
+import copy
 
 
 def getgauss(a, b, c, x):
@@ -14,7 +15,7 @@ def getgauss(a, b, c, x):
     
 def getNoisePulse(pl):
   whitenoise = std.vector("double")()
-
+  
   for i in range(pl):
     whitenoise.push_back(random.gauss(0,1))
   
@@ -45,27 +46,39 @@ def getNoiseSpectrum(pl):
     
   return spectrum
   
-def getTemplate(pl):
+def getTemplate():
+  '''
+  returns a normalized template pulse packed in a tuple. 
+  the first element of the tuple is a std.vector and
+  the second element is a regular python arrays
+
+  '''
+  s = Server('https://edwdbik.fzk.de:6984')
+  db = s['analysis']
+  doc = db['run13_templatepulse_centre_FID804AB']
+  
+  integral = 0
+  for i in range(len(doc['pulse'])):
+    integral += doc['pulse'][i]
+    
   t = std.vector("double")()
-  pt = []
-  for i in range(pl):
-    t.push_back(getgauss(1./(50*sqrt(2*math.pi)), pl/2., 50., float(i))) #the template needs to have a maximum amplitude of 1
-    #t.push_back(getgauss(10., pl/2., 50., float(i))) #the template needs to have a maximum amplitude of 1
-    pt.append(getgauss(1./(50*sqrt(2*math.pi)), pl/2., 50., float(i)))
-    #pt.append(getgauss(10., pl/2., 50., float(i)))
+  pt = copy.deepcopy(doc['pulse'])
+  for i in range(len(pt)):
+    pt[i] = pt[i]/abs(float(integral))
+    t.push_back(pt[i])
     
   return (t, pt)
 
 def createSignal(pl, template, noisepulse, amplitude = 1.):
   signal = std.vector("double")()
   for i in range(pl):
-    signal.push_back( 50*sqrt(2*math.pi)*amplitude*template[i-2000] + noisepulse[i])
-    #signal.push_back( template[i-2000] + noisepulse[i])
+    signal.push_back( amplitude*template[i-100] + noisepulse[i])
     
   return signal
   
 def getAverageNoisePower(pl):
   
+
   avePower = getNoiseSpectrum(pl)
   
   num = 50
@@ -85,14 +98,16 @@ def main(*args):
 
   tr = {}
   
-  pulseLength = 8196
   
   ### create the pulse template and save it to the return
-  (template, python_template) = getTemplate(pulseLength)
+  (template, python_template) = getTemplate()
   tr['template'] = python_template
+
+  pulseLength = len(python_template) #get the length from the template
   
   # get a noise pulse 
   # save it to the return
+  random.seed()
   noisepulse = getNoisePulse(pulseLength)
   wn = []
   for i in range(pulseLength):
@@ -102,7 +117,8 @@ def main(*args):
   
   #create the signal by adding the template to the noise
   #save it to the return
-  signal = createSignal(pulseLength, python_template, noisepulse, 1.)
+  signal = createSignal(pulseLength, python_template, noisepulse, 10000.)
+  signal2 = createSignal(pulseLength, python_template, noisepulse, 20000.)
   sig = []
   for i in range(pulseLength):
     sig.append(signal[i])
@@ -189,6 +205,24 @@ def main(*args):
   tr['optfilpower'] = optfilpower
   
 
+
+  # now calculate the fourier transform of the event signal and pass it to the filter
+  r2hc.SetInputPulse(signal2)
+  print 'real to half complex signal', r2hc.RunProcess()
+  filter.SetInputPulse(r2hc.GetOutputPulse(), r2hc.GetOutputPulseSize())
+  
+  #build the filter and run
+  print 'building filter', filter.BuildFilter()
+  print 'applying filter', filter.RunProcess()
+  
+  #save the output pulse amplitude estimates to the return
+  output2 = []
+  for i in range(filter.GetOutputPulseSize()):
+    output2.append(filter.GetOutputPulse()[i])
+  
+  tr['amplitude2'] = output2
+  
+  
   return tr
 
 if __name__ == '__main__':
