@@ -147,6 +147,13 @@ def main(*args):
   
   #### get the average noise power in order to pass it to the filter
   avePower = getAverageNoisePower(pulseLength)
+  
+  ## use the same noise as added to pulse
+  #avePower = std.vector("double")()
+  #for i in range(len(wp)):
+  #  avePower.push_back(wp[i])
+  ###
+    
   filter.SetNoiseSpectrum(avePower)
   
   #save it for the return
@@ -204,8 +211,6 @@ def main(*args):
     
   tr['optfilpower'] = optfilpower
   
-
-
   # now calculate the fourier transform of the event signal and pass it to the filter
   r2hc.SetInputPulse(signal2)
   print 'real to half complex signal', r2hc.RunProcess()
