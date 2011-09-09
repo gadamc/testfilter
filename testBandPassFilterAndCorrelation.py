@@ -118,6 +118,12 @@ def main(*args):
   (b,a) = sig.iirfilter(2,[0.01, 0.4])
   filter = KIIRFourthOrder(-a[1], -a[2], -a[3], -a[4], b[0], b[1], b[2], b[3], b[4])
   
+  #here's the filter's frequency response function
+  tr['b'] = b
+  tr['a'] = a
+  
+  
+  
   #for fun, pass the noise through the bandpass
   filter.SetInputPulse(noisepulse)
   filter.RunProcess()
@@ -154,9 +160,9 @@ def main(*args):
   tr['bp_signal'] = bp_signalpy  
   tr['bp_signalpower'] = calculatePower(bp_signal)
 
-      
+
   correlation = KCorrelation()
-  
+
   #set the template as the response to the correlation function
   correlation.SetResponse(bp_template)
   correlation.SetInputPulse(bp_signal)
