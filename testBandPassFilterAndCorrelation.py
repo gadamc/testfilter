@@ -19,8 +19,8 @@ def getNoisePulse(pl):
   
   #now filter the white noise with an iir filter to make it more realistic
   order = 4
-  (b,a) = sig.iirfilter(order,0.1, btype='lowpass')
-  iir4 = KIIRFourthOrder(-a[1], -a[2], -a[3], -a[4], b[0], b[1], b[2], b[3], b[4])
+  (b,a) = sig.iirfilter(order,0.5, btype='lowpass')
+  iir4 = KIIRFourthOrder(a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4])
   iir4.SetInputPulse(whitenoise)
   print 'filter white noise', iir4.RunProcess()
 
@@ -68,19 +68,56 @@ def getTemplate():
     
   return (t, pt)
 
-def createSignal(pl, template, noisepulse, amplitude = 1., delay = 100):
+def createSignal(pl, template, noisepulse, amplitude = 1., delay = 2095):
   signal = std.vector("double")()
   for i in range(pl):
-    signal.push_back( amplitude*template[i-delay] + noisepulse[i])
+    if i >= delay:
+      signal.push_back( amplitude*template[i-delay] + noisepulse[i])
+    else:
+      signal.push_back(noisepulse[i])
     
   return signal
   
 
+def shiftSignalLeft(signal, shift):
+  newsignal = copy.copy(signal)
+  for i in range(len(newsignal)):
+    if i + shift < len(signal):
+      newsignal[i] = signal[i+shift]
+    else:
+      newsignal[i] = 0
+  return newsignal
+  
+def shiftSignalRight(signal, shift):
+  newsignal = copy.copy(signal)
+  for i in range(len(newsignal)):
+    if i > shift:
+      newsignal[i] = signal[i-shift]
+    else:
+      newsignal[i] = 0
+  
+  return newsignal
+  
+def addWindowFunction(signal, window, center):
+  #this assumes that outside of the range of the window function, the window = 0
+  #the middle position of the window function is aligned with the value 'center'
+  firstPos = center - len(window)/2
+  j = 0
+  for i in range(len(signal)):
+    if i < firstPos:
+      signal[i] = 0
+    elif i >= firstPos and i < firstPos + len(window):
+      signal[i] = signal[i] * window[j]
+      j+=1
+    elif i >= firstPos + len(window):
+      signal[i] = 0
+      
 
 def main(*args):
 
   tr = {}  #the object that is returned by this function - used to analyze the results
   
+  tr['nyquist'] = 50000  #50 kHz is the nyquist frequncy since we have a sample rate of 100 kHz
   
   ### create the pulse template and save it to the return
   (template, python_template) = getTemplate()
@@ -104,7 +141,7 @@ def main(*args):
     
   #create the signal by adding the template to the noise
   #save it to the return
-  signal = createSignal(pulseLength, python_template, noisepulse, 10000.)
+  signal = createSignal(pulseLength, python_template, noisepulse, 500.)
   signalpy = []
   for i in range(pulseLength):
     signalpy.append(signal[i])
@@ -113,10 +150,23 @@ def main(*args):
   tr['signalpower'] = calculatePower(signal) ### calculate the power 
   
   
+  #add a windowing function
+  x = sig.blackman(3200)
+  tr['window'] = x.tolist()
+  addWindowFunction(signal, x, 6556)
+  addWindowFunction(template, x, np.argmin(template))
+  
+  tr['window_signal'] = []
+  tr['window_template'] = []
+  for i in range(len(signal)):
+    tr['window_signal'].append(signal[i])
+  
+  for i in range(len(template)):
+    tr['window_template'].append(template[i])
   #perform the filter
   
-  (b,a) = sig.iirfilter(2,[0.01, 0.4])
-  filter = KIIRFourthOrder(-a[1], -a[2], -a[3], -a[4], b[0], b[1], b[2], b[3], b[4])
+  (b,a) = sig.iirfilter(2,[0.001, 0.01])
+  filter = KIIRFourthOrder(a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4])
   
   #here's the filter's frequency response function
   tr['b'] = b
@@ -164,17 +214,62 @@ def main(*args):
   correlation = KCorrelation()
 
   #set the template as the response to the correlation function
-  correlation.SetResponse(bp_template)
+  bp_tempLeft = shiftSignalRight(bp_template, 2090)
+  bp_tempMiddle = shiftSignalRight(bp_template, 2095)
+  bp_tempRight = shiftSignalRight(bp_template, 2100)
+  
+  bp_py = []
+  for i in range(len(bp_tempLeft)):
+    bp_py.append(bp_tempLeft[i])
+  tr['bp_tempLeft'] = bp_py
+  
+  bp_py = []
+  for i in range(len(bp_tempMiddle)):
+    bp_py.append(bp_tempMiddle[i])
+  tr['bp_tempMiddle'] = bp_py
+  
+  bp_py = []
+  for i in range(len(bp_tempRight)):
+    bp_py.append(bp_tempRight[i])
+  tr['bp_tempRight'] = bp_py
+  
+  
+  correlation.SetResponse(bp_tempLeft)
   correlation.SetInputPulse(bp_signal)
   correlation.RunProcess()
-  
   corrOut = std.vector("double")()
   corrOutpy = []
   for i in range(correlation.GetOutputPulseSize()):
     corrOut.push_back(correlation.GetOutputPulse()[i])
     corrOutpy.append(correlation.GetOutputPulse()[i])
     
-  tr['corr'] = corrOutpy
+  tr['corrLeft'] = corrOutpy
+  
+  
+  correlation.SetResponse(bp_tempMiddle)
+  correlation.SetInputPulse(bp_signal)
+  correlation.RunProcess()
+  corrOut = std.vector("double")()
+  corrOutpy = []
+  for i in range(correlation.GetOutputPulseSize()):
+    corrOut.push_back(correlation.GetOutputPulse()[i])
+    corrOutpy.append(correlation.GetOutputPulse()[i])
+    
+  tr['corrMiddle'] = corrOutpy
+  
+  
+  correlation.SetResponse(bp_tempRight)
+  correlation.SetInputPulse(bp_signal)
+  correlation.RunProcess()
+  corrOut = std.vector("double")()
+  corrOutpy = []
+  for i in range(correlation.GetOutputPulseSize()):
+    corrOut.push_back(correlation.GetOutputPulse()[i])
+    corrOutpy.append(correlation.GetOutputPulse()[i])
+    
+  tr['corrRight'] = corrOutpy
+  
+  
     
   return tr
 

@@ -22,7 +22,7 @@ def getNoisePulse(pl):
   #now filter the white noise with an iir filter to make it more realistic
   order = 4
   (b,a) = sig.iirfilter(order,0.1, btype='lowpass')
-  iir4 = KIIRFourthOrder(-a[1], -a[2], -a[3], -a[4], b[0], b[1], b[2], b[3], b[4])
+  iir4 = KIIRFourthOrder(a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4])
   iir4.SetInputPulse(whitenoise)
   print 'filter white noise', iir4.RunProcess()
 
@@ -98,6 +98,7 @@ def main(*args):
 
   tr = {}
   
+  tr['nyquist'] = 50000  #50 kHz is the nyquist frequncy since we have a sample rate of 100 kHz
   
   ### create the pulse template and save it to the return
   (template, python_template) = getTemplate()
