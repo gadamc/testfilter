@@ -118,8 +118,8 @@ def main(*args):
   
   #create the signal by adding the template to the noise
   #save it to the return
-  signal = createSignal(pulseLength, python_template, noisepulse, 10000.)
-  signal2 = createSignal(pulseLength, python_template, noisepulse, 20000.)
+  signal = createSignal(pulseLength, python_template, noisepulse, 500.)
+  signal2 = createSignal(pulseLength, python_template, noisepulse, 1000.)
   sig = []
   for i in range(pulseLength):
     sig.append(signal[i])
@@ -216,11 +216,12 @@ def main(*args):
   r2hc.SetInputPulse(signal2)
   print 'real to half complex signal', r2hc.RunProcess()
   filter.SetInputPulse(r2hc.GetOutputPulse(), r2hc.GetOutputPulseSize())
+  print 'output pulse', filter.GetOutputPulse(), filter.GetOutputPulseSize()
   
   #build the filter and run
   print 'building filter', filter.BuildFilter()
   print 'applying filter', filter.RunProcess()
-  
+  print 'output pulse', filter.GetOutputPulse()
   #save the output pulse amplitude estimates to the return
   output2 = []
   for i in range(filter.GetOutputPulseSize()):
