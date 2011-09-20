@@ -55,7 +55,7 @@ def getTemplate():
   s = Server('https://edwdbik.fzk.de:6984')
   db = s['analysis']
   doc = db['run13_templatepulse_centre_FID804AB']
-  
+
   integral = 0
   for i in range(len(doc['pulse'])):
     integral += doc['pulse'][i]
@@ -152,6 +152,10 @@ def main(*args):
   
   #add a windowing function
   x = sig.blackman(3200)
+  xx = KWindowDesign.GetBlackmanWindow(3200)
+  x = np.zeros(3200)
+  for i in range(3200):
+    x[i] = xx[i]
   tr['window'] = x.tolist()
   addWindowFunction(signal, x, 6556)
   addWindowFunction(template, x, np.argmin(template))

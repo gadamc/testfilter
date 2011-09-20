@@ -69,13 +69,18 @@ def getTemplate():
     
   return (t, pt)
 
-def createSignal(pl, template, noisepulse, amplitude = 1.):
+
+def createSignal(pl, template, noisepulse, amplitude = 1., delay = 2095):
   signal = std.vector("double")()
   for i in range(pl):
-    signal.push_back( amplitude*template[i-100] + noisepulse[i])
-    
+    if i >= delay:
+      signal.push_back( amplitude*template[i-delay] + noisepulse[i])
+    else:
+      signal.push_back(noisepulse[i])
+
   return signal
-  
+
+
 def getAverageNoisePower(pl):
   
 
