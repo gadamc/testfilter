@@ -123,8 +123,8 @@ def main(*args):
   
   #create the signal by adding the template to the noise
   #save it to the return
-  signal = createSignal(pulseLength, python_template, noisepulse, 500.)
-  signal2 = createSignal(pulseLength, python_template, noisepulse, 1000.)
+  signal = createSignal(pulseLength, python_template, noisepulse, 5000.)
+  signal2 = createSignal(pulseLength, python_template, noisepulse, 10000.)
   sig = []
   for i in range(pulseLength):
     sig.append(signal[i])
