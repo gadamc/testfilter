@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 global figObj
-global trapKamp = KTrapKamperProto
+global trapKamp = KTrapKamperProto()
 #
 def getAmplitudeTrap(p):
   global trapKamp
