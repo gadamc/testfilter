@@ -6,21 +6,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-global e, f, r
-
 f = KDataReader(sys.argv[1])
 e = f.GetEvent()
 
-
 figObj = plt.figure(1)
-
 plt.ion()
-
 trap = KTrapezoidalKamper()
 trap.SetDebugMode()
-
-global entry, j, k
-
 
 for entry in range(f.GetEntries()):
 
