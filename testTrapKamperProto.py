@@ -1,14 +1,23 @@
 #!/usr/bin/env python
-
 from ROOT import *
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
 global figObj
-
 global trapKamp = KTrapKamperProto
-
+#
+def getAmplitudeTrap(p):
+  global trapKamp
+  if p.GetIsHeatPulse():  return trapKamp.GetTrapHeatAmplitude()
+  else:   return trapKamp.GetTrapIonAmplitude()
+    
+#
+def getTimingTrapVector(p):
+  global trapKamp
+  if p.GetIsHeatPulse():  return trapKamp.GetTrapHeatTime()
+  else:  return trapKamp.GetTrapIonTime()
+    
 #
 def changeTrapParameters(trap, message = None):
   d_orig_t = trap.GetDecayTimeConstant()
@@ -29,15 +38,14 @@ def changeTrapParameters(trap, message = None):
     #   else:
     #     return (d_orig_t, ri_orig_t, ff_orig_t)
 
-
-
 #
-def changeTrapKamperPeakFinderAmp(trapKamp):
-      
-      
-      
+def changePulseFinderTrapParameters():
+  
+  for trap in getTimingTrapVector()
+    changeTrapParameters(trap)
+       
 #
-def plotPulseInfo(p, r):
+def plot(p, r):
 
   global trapKamp
   
@@ -53,10 +61,7 @@ def plotPulseInfo(p, r):
   plt.plot(pulse)
   plt.title('raw')
   
-  if p.GetIsHeatPulse():
-    trapAmp = trapKamp.GetTrapHeatAmplitude()
-  else:
-    trapAmp = trapKamp.GetTrapIonAmplitude()
+  trapAmp = getAmplitudeTrap(p)
     
   cleanPulse = np.array([])
   for i in range(trapAmp.GetInputPulseSize()):
@@ -80,7 +85,6 @@ def plotPulseInfo(p, r):
       numNonZero += 1
   print 'num peaks', numNonZero
   
-  
   ampPulse = np.array([])
   for i in range(trapAmp.GetOutputPulseSize()):
     ampPulse = np.append(ampPulse, trapAmp.GetOutputPulse()[i])
@@ -92,39 +96,35 @@ def plotPulseInfo(p, r):
   
   print 'results:'
   print 'amp / peak position', r.GetAmp, '/', r.GetPeakPosition()
+  
 #
 def analyzePulse(p):
 
   global trapKamp
   r = KPulseAnalysisRecord()
   trapKamp.MakeKamp(p,r)
-  plotPulseInfo(p,r)
-  
-  go = raw_input('Change Trap Parameters?(y/n/s/quit)')
+  plot(p,r)
+      
+  go = raw_input('Change Parameters?(y/N/s/quit)')
   while(go == 'y'):
     
-    if p.GetIsHeatPulse():
-      heat_decay_fast, heat_rt_fast, heat_ft_fast = changeTrapParameters(trapFast, 'fast trap' )
-      heat_decay_slow, heat_rt_slow, heat_ft_slow = changeTrapParameters(trapSlow, 'slow trap')
-    else:
-      ion_decay_fast, ion_rt_fast, ion_ft_fast = changeTrapParameters(trapFast, 'fast trap')
-      ion_decay_slow, ion_rt_slow, ion_ft_slow = changeTrapParameters(trapSlow, 'slow trap')
+    changeTrapParameters(getAmplitudeTrap(p), 'amplitude trap filter' )
+    changePeakAmplitudeFinder()
+    gogo = raw_input('Change Pulse Finder Trap Parameters? y/N')
+    if gogo == 'y':
+      changePulseFinderTrapParameters()
       
-    trapSlow.SetInputPulse(ptaToTraps.GetOutputPulse(), ptaToTraps.GetOutputPulseSize())
-    trapSlow.RunProcess()
-    trapFast.SetInputPulse(ptaToTraps.GetOutputPulse(), ptaToTraps.GetOutputPulseSize())
-    trapFast.RunProcess()
+    #run analysis and plot the results
+    trapKamp.MakeKamp(p,r)
+    plot(p, r)
     
-    #plot the results
-    plotTheTraps(trapFast, 'fast trap', trapSlow, 'slow trap')
-    
-    go = raw_input('Change Trap Parameters?(y/n/s/quit)')
+    go = raw_input('Change Trap Parameters?(y/N/s/quit)')
     
   return go
+  
 #
 def runApp(*argv):
   global figObj
- 
  
   f = KDataReader(argv[0])
   e = f.GetEvent()
@@ -140,13 +140,11 @@ def runApp(*argv):
       for k in range(b.GetNumPulseRecords()):
         p = b.GetPulseRecord(k)
         
-        print p.GetChannelName()
         answer = plotPulse(p)
         if answer == 'quit':
           sys.exit(0)
         if answer == 's':
           break  #skip to the next bolometer 
-
        
 if __name__ == '__main__':
   runApp(*sys.argv[1:])
