@@ -12,7 +12,7 @@ global ion_decay_fast, ion_rt_fast, ion_ft_fast
 global heat_decay_slow, heat_rt_slow, heat_ft_slow
 global ion_decay_slow, ion_rt_slow, ion_ft_slow
 
-def plotTheTraps(trapTop, toptitle, trapBottom, bottomtitle):
+def plotTheTraps(p, trapTop, toptitle, trapBottom, bottomtitle):
   
   trapBottomOut = []
   trapTopOut = []
@@ -23,7 +23,7 @@ def plotTheTraps(trapTop, toptitle, trapBottom, bottomtitle):
   for i in range(trapBottom.GetOutputPulseSize()):
     trapBottomOut.append(trapBottom.GetOutputPulse()[i])
   
-  plt.subplot(5,1,3)
+  plt.subplot(6,1,3)
   plt.cla()
   plt.plot(np.array(trapTopOut))
   plt.title(toptitle)
@@ -36,13 +36,34 @@ def plotTheTraps(trapTop, toptitle, trapBottom, bottomtitle):
   for i in range(1, len(diffone)):
     difftwo[i] = diffone[i] - diffone[i-1]
   
-  plt.subplot(5,1,4)
+  plt.subplot(6,1,4)
   plt.cla()
   plt.plot(difftwo)
   plt.title(toptitle + ' second derivative')
     
-    
-  plt.subplot(5,1,5)
+  trapKamp = KTrapKamperProto()
+  polCalc = KPulsePolarityCalculator()
+  trapKamp.ClearPeakPositionResult()
+  trapKamp.ResizePeakPositionResult( trapTop.GetOutputPulseSize() )
+  o1 = KOrderFilter()
+  o2 = KOrderFilter()
+  o1.SetOrder(1)
+  o2.SetOrder(1)
+  o1.SetInputPulse(trapTop.GetOutputPulse(), trapTop.GetOutputPulseSize())
+  o1.RunProcess()
+  o2.SetInputPulse(o1.GetOutputPulse(), o1.GetOutputPulseSize())
+  o2.RunProcess()
+  
+  trapKamp.FillPeakPositionResult(o2, trapTop, polCalc.GetExpectedPolarity(p))  
+  
+  peakPosResult = trapKamp.GetPeakPositionResult()
+  
+  plt.subplot(6,1,5)
+  plt.cla()
+  plt.plot(np.array(peakPosResult))
+  plt.title('peakPos')
+  
+  plt.subplot(6,1,6)
   plt.cla()
   plt.plot(np.array(trapBottomOut))
   plt.title(bottomtitle)
@@ -118,12 +139,12 @@ def plotPulse(p):
   print 'slow trap (decay, rise, flat):', trapSlow.GetDecayTimeConstant(), trapSlow.GetRiseTime(), trapSlow.GetFlatTopWidth()
   pulse = np.array(p.GetTrace())
   
-  plt.subplot(5,1,1)
+  plt.subplot(6,1,1)
   plt.cla()
   plt.plot(pulse)
   plt.title('raw')
   
-  plt.subplot(5,1,2)
+  plt.subplot(6,1,2)
   plt.cla()
   clean = []
   for i in range(ptaToTraps.GetOutputPulseSize()):
@@ -132,7 +153,7 @@ def plotPulse(p):
   plt.plot(np.array(clean))
   plt.title('clean')
   
-  plotTheTraps(trapFast, 'fast trap', trapSlow, 'slow trap')
+  plotTheTraps(p, trapFast, 'fast trap', trapSlow, 'slow trap')
   
   
   #change trap parameters and plot as desired.
@@ -152,7 +173,7 @@ def plotPulse(p):
     trapFast.RunProcess()
     
     #plot the results
-    plotTheTraps(trapFast, 'fast trap', trapSlow, 'slow trap')
+    plotTheTraps(p, trapFast, 'fast trap', trapSlow, 'slow trap')
     
     go = raw_input('Change Trap Parameters?(y/n/s/quit)')
     
@@ -188,13 +209,15 @@ def runApp(*argv):
   
   for entry in range(f.GetEntries()):
     f.GetEntry(entry)
-
+    print "event number in file", entry
     for j in range(e.GetNumBolos()):
       b = e.GetBolo(j)
-            
+      
       for k in range(b.GetNumPulseRecords()):
         p = b.GetPulseRecord(k)
-        
+        if p.GetPulseLength() == 0:
+          continue
+          
         answer = plotPulse(p)
         if answer == 'quit':
           sys.exit(0)
