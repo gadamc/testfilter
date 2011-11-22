@@ -12,7 +12,11 @@ global ion_decay_fast, ion_rt_fast, ion_ft_fast
 global heat_decay_slow, heat_rt_slow, heat_ft_slow
 global ion_decay_slow, ion_rt_slow, ion_ft_slow
 
+global trapKamp
+
 def plotTheTraps(p, trapTop, toptitle, trapBottom, bottomtitle):
+  
+  global trapKamp
   
   trapBottomOut = []
   trapTopOut = []
@@ -41,7 +45,7 @@ def plotTheTraps(p, trapTop, toptitle, trapBottom, bottomtitle):
   plt.plot(difftwo)
   plt.title(toptitle + ' second derivative')
     
-  trapKamp = KTrapKamperProto()
+  
   polCalc = KPulsePolarityCalculator()
   trapKamp.ClearPeakPositionResult()
   trapKamp.ResizePeakPositionResult( trapTop.GetOutputPulseSize() )
@@ -88,7 +92,13 @@ def changeTrapParameters(trap, message = None):
   else:
     return (d_orig_t, ri_orig_t, ff_orig_t)
       
-    
+def changePeakAmplitudeFinder():
+  global trapKamp
+  val = raw_input('Set peak finder amplitude (%f): ' % trapKamp.GetPeakPositionSearchAmplifier()) 
+  if val != '':
+    trapKamp.SetPeakPositionSearchAmplifier(float(val))
+#
+     
 def plotPulse(p):
   
   global figObj
@@ -172,6 +182,7 @@ def plotPulse(p):
     trapFast.SetInputPulse(ptaToTraps.GetOutputPulse(), ptaToTraps.GetOutputPulseSize())
     trapFast.RunProcess()
     
+    changePeakAmplitudeFinder()
     #plot the results
     plotTheTraps(p, trapFast, 'fast trap', trapSlow, 'slow trap')
     
@@ -187,17 +198,21 @@ def runApp(*argv):
   global heat_decay_slow, heat_rt_slow, heat_ft_slow
   global ion_decay_slow, ion_rt_slow, ion_ft_slow
   
-  heat_decay_fast = 50.0
-  heat_rt_fast = 3
-  heat_ft_fast = 10
-  ion_decay_fast = 1100.0
-  ion_rt_fast = 3
-  ion_ft_fast = 10
+  global trapKamp
   
-  heat_decay_slow = 50.0
+  trapKamp = KTrapKamperProto()
+  
+  heat_decay_fast = 20.0
+  heat_rt_fast = 15
+  heat_ft_fast = 60
+  ion_decay_fast = 400.0
+  ion_rt_fast = 15
+  ion_ft_fast = 70
+  
+  heat_decay_slow = 20.0
   heat_rt_slow = 10
-  heat_ft_slow = 20
-  ion_decay_slow = 1100.0
+  heat_ft_slow = 30
+  ion_decay_slow = 1000.0
   ion_rt_slow = 50
   ion_ft_slow = 200
   

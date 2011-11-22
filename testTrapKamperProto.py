@@ -41,7 +41,7 @@ def changeTrapParameters(trap, message = None):
 #
 def changePulseFinderTrapParameters(p):
   
-  ### why does this break!±!!
+  #
   traps = getTimingTrapVector(p)
   for i in range(len(traps)):
     changeTrapParameters(traps[i])
@@ -240,8 +240,10 @@ def runApp(*argv):
   e = f.GetEvent()
   t = f.GetTTree()
   
-  for entry in t:
-
+  for entry in range(f.GetEntries()):
+    f.GetEntry(entry)
+    print "current event number in file", entry
+    
     for j in range(e.GetNumBolos()):
       b = e.GetBolo(j)
             
