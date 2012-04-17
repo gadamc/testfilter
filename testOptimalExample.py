@@ -79,9 +79,9 @@ for row in viewResults:
   if row['key'] != 'ma22a000': continue #skip all runs but ma22a000
   doc = db[row['id']] #grab the document from the database.
   
-  print 'searching for noise events in', doc['file']
+  print 'searching for noise events in', doc['proc1']['file']
   #open the file
-  f = KDataReader( doc['file'] )
+  f = KDataReader( doc['proc1']['file'] )
   e = f.GetEvent()  #get the KRawEvent object
 
   #now, we have to loop through the data and 
