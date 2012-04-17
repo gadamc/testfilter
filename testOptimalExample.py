@@ -112,7 +112,7 @@ for row in viewResults:
   
   if row['key'] != 'ma22a000': continue #skip all runs but ma22a000
   doc = db[row['id']] #grab the document from the database.
-  if doc['file_number'] > 1: continue #just do the first 3 hours of data for this example
+  if doc['file_number'] > 4: continue #just do the first 5 hours of data for this example
   
   print 'searching for noise events on', myChannel, 'in', doc['proc1']['file']
   #open the file
@@ -123,7 +123,7 @@ for row in viewResults:
   #determine the average noise power spectrum for `myChannel'
 
   power = std.vector("double")()  #will store the average power spectrum here. 
-  numOfSpectra = 0  # the number of power spectra used in calculation of the average
+  numOfSpectra = 0.0  # the number of power spectra used in calculation of the average
   
   for i in range(f.GetEntries()):
     f.GetEntry(i)
@@ -143,18 +143,20 @@ for row in viewResults:
         
         #applying windowing and then calculate power spectrum
         npChain.SetInputPulse( bas.GetOutputPulse(), bas.GetOutputPulseSize() )
+        #print npChain.GetInputPulseSize(), npChain.GetOutputPulseSize()
+        #npChain.SetInputPulse( p.GetTrace() )
         if npChain.RunProcess() == False:
-          print 'huh...'
+          print 'excusez-moi... ' #this shouldn't fail
           continue
              
         #i assume here that the pulse length never changes within a run
         if numOfSpectra == 0:
-          power.resize( hc2p.GetOutputPulseSize())
+          power.resize( npChain.GetOutputPulseSize())
           for  k in range(power.size()):
-            power[k] =  hc2p.GetOutputPulse()[k]
-        else:
+            power[k] =  npChain.GetOutputPulse()[k]
+        else: #calculate the running averge of the noise power spectrum
           for k in range(power.size()):
-            power[k] = power[k] * (numOfSpectra-1.0)/numOfSpectra + hc2p.GetOutputPulse()[k] / numOfSpectra
+            power[k] = power[k] * (numOfSpectra-1.0)/numOfSpectra + npChain.GetOutputPulse()[k] / numOfSpectra
       
         numOfSpectra += 1.0  
   
