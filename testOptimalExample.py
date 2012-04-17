@@ -75,7 +75,6 @@ tempChain = KPulseAnalysisChain()
 tempChain.AddProcessor(window)
 tempChain.AddProcessor(pulseshift)
 tempChain.AddProcessor(r2hc)
-tempChain.SetIsOwner(False)
 
 tempChain.SetInputPulse(vp)
 tempChain.RunProcess()
@@ -87,11 +86,16 @@ hc2p.RunProcess()
 plt.plot( get_out(hc2p) )
 raw_input('enter to continue')
 
-npChain = KPulseAnalysisChain()
+npChain = KPulseAnalysisChain() #processing chain to calculation the noise power
 npChain.AddProcessor(window)
 npChain.AddProcessor(r2hc)
 npChain.AddProcessor(hc2p)
-npChain.SetIsOwner(False)
+
+optChain = KPulseAnalysisChain() #processing chain to apply the optimal filter to a raw pulse
+optChain.AddProcessor(bas)
+optChain.AddProcessor(window)
+optChain.AddProcessor(r2hc)
+optChain.AddProcessor(optFilter)
 
 #before starting, create a dictionary to store results.
 results = dict()  
@@ -166,15 +170,9 @@ for row in viewResults:
     
       if p.GetChannelName() == myChannel:    
         
-        bas.SetInputPulse( p.GetTrace() )
-        bas.RunProcess()
-        window.SetInputPulse( bas.GetOutputPulse(), bas.GetOutputPulseSize() )
-        window.RunProcess()
-        r2hc.SetInputPulse( window.GetOutputPulse(), window.GetOutputPulseSize() )
-        r2hc.RunProcess()
-        optFilter.SetInputPulse( r2hc.GetOutputPulse(), r2hc.GetOutputPulseSize() )
-        optFilter.RunProcess()
-      
+        optChain.SetInputPulse( p.GetTrace() )
+        optChain.RunProcess()
+        
         amp = get_out( optFilter )
         subamp = amp[ shiftVal - 10: shiftVal + 10]  #only look at the first +- 10 bins around the pretrigger
       
