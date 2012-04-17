@@ -4,6 +4,8 @@ from ROOT import *
 import sys
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.signal as sig
+
 
 global figObj
 
@@ -13,6 +15,8 @@ global heat_decay_slow, heat_rt_slow, heat_ft_slow
 global ion_decay_slow, ion_rt_slow, ion_ft_slow
 
 global trapKamp
+
+global mostRecentIonPulseStartTime
 
 def plotTheTraps(p, trapTop, toptitle, trapBottom, bottomtitle):
   
@@ -108,25 +112,82 @@ def plotPulse(p):
   global heat_decay_slow, heat_rt_slow, heat_ft_slow
   global ion_decay_slow, ion_rt_slow, ion_ft_slow
   
+  global mostRecentIonPulseStartTime
+  
   r = KPulseAnalysisRecord()
   bas = KBaselineRemoval()
+  lin = KLinearRemoval()
+  lin.SetBaselineStop(0.20)
   pat = KPatternRemoval()
+  pat.SetPatternLength(200)
+  (b,a) = sig.iirfilter(4,0.05, btype='lowpass')
+  
+  iir = KIIRFourthOrder(a[1], a[2], a[3], a[4], b[0], b[1], b[2], b[3], b[4])
   trapFast = KTrapezoidalFilter()
   trapSlow = KTrapezoidalFilter()
+  graphFit = TGraph(p.GetPulseLength())
+  polCalc = KPulsePolarityCalculator()
+  theSign = "+"
+  if polCalc.GetExpectedPolarity(p) == -1:
+    theSign = "-"
+  theForm = '[0] %s [1]/(1 + exp(-2*[2]*(x - [3])))' % theSign
   
-  bas.SetInputPulse(p.GetTrace())
-  bas.RunProcess()
+  f1 = TF1('bbv2',theForm, 2000, 6000)
+  f1.SetParameter(0, 0)
+  f1.SetParameter(1, 1)
+  f1.SetParameter(2, 0.149)
+  #f1.FixParameter(2, 0.149)
+  #f1.SetParLimits(2, 0, 0.3)
+  f1.SetParameter(3, 4100)
+  f1.SetParLimits(3, 2000, 6000)
   
   ptaToTraps = pat
   
-  if p.GetIsHeatPulse() == False:
-    pat.SetPatternLength( int(p.GetHeatPulseStampWidth()) )
+  if p.GetIsHeatPulse() == False and p.GetBoloBoxVersion() < 2.0: #why is there no pattern on bbv2
+    print ' bbv1 '
+    bas.SetInputPulse(p.GetTrace())
+    bas.RunProcess()
+    pat.SetPatternLength( 200 )
     pat.SetInputPulse(bas.GetOutputPulse(), bas.GetOutputPulseSize())
+    #print 'here'
     pat.RunProcess()
     pat.SetInputPulse(pat.GetOutputPulse(), pat.GetOutputPulseSize())
-    pat.SetPatternLength(int(2*p.GetHeatPulseStampWidth()))
+    pat.SetPatternLength(400)
+    #print 'here'
     pat.RunProcess()
+    ptaToTraps = pat
+    #print 'here'
+    
+  elif p.GetIsHeatPulse() == False and p.GetBoloBoxVersion >= 2.0:
+    print 'lowpass filter'
+    lin.SetInputPulse(p.GetTrace())
+    lin.RunProcess()
+    iir.SetInputPulse(lin.GetOutputPulse(), lin.GetOutputPulseSize())
+    iir.RunProcess()
+    ptaToTraps = iir
+    print 'b', b
+    print 'a', a
+    
+    #pat.SetPatternLength( 10 )
+    #pat.SetInputPulse(bas.GetOutputPulse(), bas.GetOutputPulseSize())
+    #pat.RunProcess()
+    
+    for i in range(ptaToTraps.GetOutputPulseSize()):
+      graphFit.SetPoint(i, i, ptaToTraps.GetOutputPulse()[i])
+    
+    res = graphFit.Fit(f1, 'SR')
+    rep = res.Get()
+    #print rep.Print('V')
+    print ''
+    print rep.Status()
+    if rep.Status == 0:
+      mostRecentIonPulseStartTime = f1.GetParmater(3)
+    
+    print theForm
+    
   else:
+    bas.SetInputPulse(p.GetTrace())
+    bas.RunProcess()
     ptaToTraps = bas
     
   if p.GetIsHeatPulse():
@@ -137,11 +198,12 @@ def plotPulse(p):
     trapFast.SetParams(ion_decay_fast, ion_rt_fast, ion_ft_fast)
     trapSlow.SetParams(ion_decay_slow, ion_rt_slow, ion_ft_slow)
     
+  print 'here'
   trapFast.SetInputPulse(ptaToTraps.GetOutputPulse(), ptaToTraps.GetOutputPulseSize())
   trapFast.RunProcess()
   trapSlow.SetInputPulse(ptaToTraps.GetOutputPulse(), ptaToTraps.GetOutputPulseSize())
   trapSlow.RunProcess()
-  
+  print 'here'
   
   #plot the results and output information to terminal
   print p.GetChannelName()
@@ -162,6 +224,14 @@ def plotPulse(p):
     
   plt.plot(np.array(clean))
   plt.title('clean')
+  
+  if p.GetIsHeatPulse() == False and p.GetBoloBoxVersion >= 2.0:
+    'plotting fit for bbv2'
+    fitArr = np.zeros(p.GetPulseLength())
+    for i in range(p.GetPulseLength()):
+      fitArr[i] = f1.Eval(i)
+    plt.plot(fitArr)
+  
   
   plotTheTraps(p, trapFast, 'fast trap', trapSlow, 'slow trap')
   
@@ -200,12 +270,14 @@ def runApp(*argv):
   
   global trapKamp
   
+  global mostRecentIonPulseStartTime
+  mostRecentIonPulseStartTime =  4096  
   trapKamp = KTrapKamperProto()
   
   heat_decay_fast = 20.0
   heat_rt_fast = 15
   heat_ft_fast = 60
-  ion_decay_fast = 400.0
+  ion_decay_fast = 1000.0
   ion_rt_fast = 15
   ion_ft_fast = 70
   
@@ -213,8 +285,8 @@ def runApp(*argv):
   heat_rt_slow = 10
   heat_ft_slow = 30
   ion_decay_slow = 1000.0
-  ion_rt_slow = 50
-  ion_ft_slow = 200
+  ion_rt_slow = 15
+  ion_ft_slow = 1000
   
   print argv
   f = KDataReader(argv[0])
