@@ -81,7 +81,7 @@ tempChain.RunProcess()
 plt.plot( np.array(vp) )
 plt.plot( get_out(window) )
 plt.plot( get_out(pulseshift) )
-raw_input('enter to continue')
+raw_input('enter to continue') #take a look at the pulse template
 plt.cla()
 
 optFilter.SetTemplateDFT( tempChain.GetOutputPulse(), tempChain.GetOutputPulseSize() )
@@ -89,7 +89,6 @@ optFilter.SetTemplateDFT( tempChain.GetOutputPulse(), tempChain.GetOutputPulseSi
 hc2p.SetInputPulse(r2hc.GetOutputPulse(), r2hc.GetOutputPulseSize())
 hc2p.RunProcess()
 plt.plot( get_out(hc2p) )
-raw_input('enter to continue')
 
 npChain = KPulseAnalysisChain() #processing chain to calculation the noise power
 npChain.AddProcessor(window)
@@ -143,8 +142,6 @@ for row in viewResults:
         
         #applying windowing and then calculate power spectrum
         npChain.SetInputPulse( bas.GetOutputPulse(), bas.GetOutputPulseSize() )
-        #print npChain.GetInputPulseSize(), npChain.GetOutputPulseSize()
-        #npChain.SetInputPulse( p.GetTrace() )
         if npChain.RunProcess() == False:
           print 'excusez-moi... ' #this shouldn't fail
           continue
