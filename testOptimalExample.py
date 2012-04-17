@@ -78,24 +78,27 @@ tempChain.AddProcessor(r2hc)
 
 tempChain.SetInputPulse(vp)
 tempChain.RunProcess()
+optFilter.SetTemplateDFT( tempChain.GetOutputPulse(), tempChain.GetOutputPulseSize() )
+
+#take a look at the pulse template
 plt.plot( np.array(vp) )
 plt.plot( get_out(window) )
 plt.plot( get_out(pulseshift) )
-raw_input('enter to continue') #take a look at the pulse template
+raw_input('enter to continue') 
 plt.cla()
-
-optFilter.SetTemplateDFT( tempChain.GetOutputPulse(), tempChain.GetOutputPulseSize() )
 
 hc2p.SetInputPulse(r2hc.GetOutputPulse(), r2hc.GetOutputPulseSize())
 hc2p.RunProcess()
-plt.plot( get_out(hc2p) )
+plt.plot( get_out(hc2p) ) #plot the template power
 
-npChain = KPulseAnalysisChain() #processing chain to calculation the noise power
+#define processing chain to calculation the noise power
+npChain = KPulseAnalysisChain() 
 npChain.AddProcessor(window)
 npChain.AddProcessor(r2hc)
 npChain.AddProcessor(hc2p)
 
-optChain = KPulseAnalysisChain() #processing chain to apply the optimal filter to a raw pulse
+#define processing chain to apply the optimal filter to a raw pulse
+optChain = KPulseAnalysisChain() 
 optChain.AddProcessor(bas)
 optChain.AddProcessor(window)
 optChain.AddProcessor(r2hc)
