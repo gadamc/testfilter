@@ -78,6 +78,11 @@ tempChain.AddProcessor(r2hc)
 
 tempChain.SetInputPulse(vp)
 tempChain.RunProcess()
+plt.plot( np.array(vp) )
+plt.plot( get_out(window) )
+plt.plot( get_out(pulseshift) )
+raw_input('enter to continue')
+plt.cla()
 
 optFilter.SetTemplateDFT( tempChain.GetOutputPulse(), tempChain.GetOutputPulseSize() )
 
@@ -138,7 +143,9 @@ for row in viewResults:
         
         #applying windowing and then calculate power spectrum
         npChain.SetInputPulse( bas.GetOutputPulse(), bas.GetOutputPulseSize() )
-        npChain.RunProcess()
+        if npChain.RunProcess() == False:
+          print 'huh...'
+          continue
              
         #i assume here that the pulse length never changes within a run
         if numOfSpectra == 0:
@@ -173,25 +180,27 @@ for row in viewResults:
         optChain.SetInputPulse( p.GetTrace() )
         optChain.RunProcess()
         
-        amp = get_out( optFilter )
-        subamp = amp[ shiftVal - 10: shiftVal + 10]  #only look at the first +- 10 bins around the pretrigger
-      
+        amp = get_out( optChain )
+        subamp = amp[ shiftVal - 50: shiftVal + 50]  #only look around the pretrigger
+       
         results['amp'].append( subamp[subamp.argmax()] )
-        results['time'].append( subamp.argmax() )
+        results['time'].append( subamp.argmax() + shiftVal - 50 )
       
     
 hall = TH1I('hall', 'hall', 1500, -100, 1400)      
 hpeak =   TH1I('hpeak', 'hpeak', 1500, -100, 1400)
-peakdist = TH1I('peak','peak relative to trigger time',20, -10, 10)
+peakdist = TH1I('peak','peak relative to trigger time',512, 0, 512)
 for peaktime in results['time']:
   peakdist.Fill(peaktime)
 
 peakdist.Draw()
-raw_input('hit Enter to continue...')
+
+peakmin = float(raw_input('set minimum value ... '))
+peakmax = float(raw_input('set maximum value ... '))
 
 for i in range( len(results['amp']) ):
   hall.Fill( results['amp'][i] )
-  if results['time'][i] <  3 and results['time'][i] > 0:
+  if results['time'][i] < peakmax  and results['time'][i] > peakmin:
     hpeak.Fill( results['amp'][i] )
   
 c2 = TCanvas('c2')
