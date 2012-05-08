@@ -54,7 +54,8 @@ def kamp(f, cham, channels):
           
         print 'Entry', ii, p.GetChannelName()
         
-        s = couchdbkit.Server('http://localhost:5984')
+        #s = couchdbkit.Server('http://localhost:5984')
+        s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
         db = s['pulsetemplates']
         
         pulse = p.GetTrace()
@@ -170,8 +171,8 @@ def kamp(f, cham, channels):
         baspulse = get_out(bas)
           
         plt.plot(baspulse)
-        s = couchdbkit.Server('http://localhost:5984')
-        #s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
+        #s = couchdbkit.Server('http://localhost:5984')
+        s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
         db = s['pulsetemplates']
         vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[p.GetChannelName(), "2012-01-22 00:00:00.0"], limit=1, include_docs=True)
         doc = vr.first()['doc']
@@ -196,8 +197,8 @@ def kamp(f, cham, channels):
         
         raw_input()
 
-#s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
-s = couchdbkit.Server('http://localhost:5984')
+s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
+#s = couchdbkit.Server('http://localhost:5984')
 db = s['pulsetemplates']
 
 filenum = int(sys.argv[1])
