@@ -5,7 +5,7 @@ import operator
 from ROOT import *
 import matplotlib.pyplot as plt
 import numpy as np
-import json
+import json, sys
 
 plt.ion()
 
@@ -171,17 +171,18 @@ def kamp(f, cham, channels):
           
         plt.plot(baspulse)
         s = couchdbkit.Server('http://localhost:5984')
+        #s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
         db = s['pulsetemplates']
         vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[p.GetChannelName(), "2012-01-22 00:00:00.0"], limit=1, include_docs=True)
         doc = vr.first()['doc']
         vp = std.vector("double")()
         exec(doc['formula']['rise_double_decay']['python']) #defines 'template' function
-        doc['formula']['rise_double_decay']['par'][2] = doc['formula']['rise_double_decay']['par'][2]/2.016
-        doc['formula']['rise_double_decay']['par'][3] = doc['formula']['rise_double_decay']['par'][3]/2.016
-        doc['formula']['rise_double_decay']['par'][5] = doc['formula']['rise_double_decay']['par'][5]/2.016
+        #doc['formula']['rise_double_decay']['par'][2] = doc['formula']['rise_double_decay']['par'][2]/2.016
+        #doc['formula']['rise_double_decay']['par'][3] = doc['formula']['rise_double_decay']['par'][3]/2.016
+        #doc['formula']['rise_double_decay']['par'][5] = doc['formula']['rise_double_decay']['par'][5]/2.016
         #doc['formula']['rise_double_decay']['par'][0]=300  #put it close to zero, but away from the windowing function
         for i in range( 512 ):
-          vp.push_back( template(i, doc['formula']['rise_double_decay']['par']))
+          vp.push_back( template(i*2.016, doc['formula']['rise_double_decay']['par']))
           
         #plot the pulse templates for documentation
         scaleFactor = abs(min(np.array(winpulse)))/abs(min(np.array(vp)))
@@ -199,12 +200,14 @@ def kamp(f, cham, channels):
 s = couchdbkit.Server('http://localhost:5984')
 db = s['pulsetemplates']
 
-cham = KChamonixKAmpSite()
+filenum = int(sys.argv[1])
+
+
 #f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/ma14f004_000.root')
-f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_000.root')
+f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.root' % filenum)
 
 #cham.GetHeatWindow().SetWindow(KWindowDesign.GetTukeyWindow(512,0.7), 512);
-cham.GetHeatPeakDetector().SetNumRms(2.3)
+
 chanList = ["chalA FID807", "chalB FID807", "chalA FID808", "chalB FID808"]
 #chanList = ["chalA FID803", "chalB FID803", "chalA FID806", "chalB FID806"]
 #chanList = ["chalA FID802", "chalB FID802", "chalA FID804", "chalB FID804"]
@@ -213,9 +216,14 @@ chanList = ["chalA FID807", "chalB FID807", "chalA FID808", "chalB FID808"]
 hc2p = KHalfComplexPower()
 hc2r = KHalfComplexToRealDFT()
 
+cham = KChamonixKAmpSite()
+cham.GetHeatPeakDetector().SetOrder(3)
+cham.GetHeatPeakDetector().SetNumRms(2.9)
+
 
 for chan in chanList:
   print chan
+  
   vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[chan, "2012-01-22 00:00:00.0"], limit=1, include_docs=True)
   doc = vr.first()['doc']
   vp = std.vector("double")()
@@ -232,7 +240,7 @@ for chan in chanList:
     vp.push_back( template(i*2.016, doc['formula']['rise_double_decay']['par']))
     
   #plot the pulse templates for documentation
-  plt.plot(np.array(vp))
+  #plt.plot(np.array(vp))
   #raw_input('... continue')
   
   scaleFactor = 1./abs(min(np.array(vp)))
@@ -242,57 +250,59 @@ for chan in chanList:
   for i in range(vp.size()):
     vp[i] = scaleFactor * vp[i]
     
-  plt.plot(np.array(vp))
+  #plt.plot(np.array(vp))
   #raw_input('... continue')
   
   cham.GetPulseTemplateShifter().SetShift(-1 * int(doc['formula']['rise_double_decay']['par'][0]/2.016 + 0.5) )
-  print cham.SetTemplate(chan, vp)
-  cham.SetTrapDecayConstant(chan, doc['formula']['rise_double_decay']['par'][3])
+  cham.SetTemplate(chan, vp)
+  #cham.SetTrapDecayConstant(chan, doc['formula']['rise_double_decay']['par'][3])
   
   #plot the power spectrum
-  hc2p.SetInputPulse(cham.GetTemplateSpectrum(chan))
-  hc2p.RunProcess()
-  pw = std.vector("double")()
-  pwh = TH1D('p', 'p', hc2p.GetOutputPulseSize(), 0, hc2p.GetOutputPulseSize())
-  for i in range(hc2p.GetOutputPulseSize()):
-    pw.push_back(hc2p.GetOutputPulse()[i])
-    pwh.SetBinContent(i+1, hc2p.GetOutputPulse()[i])
+  #hc2p.SetInputPulse(cham.GetTemplateSpectrum(chan))
+  #hc2p.RunProcess()
+  #pw = std.vector("double")()
+  #pwh = TH1D('p', 'p', hc2p.GetOutputPulseSize(), 0, hc2p.GetOutputPulseSize())
+  #for i in range(hc2p.GetOutputPulseSize()):
+  #  pw.push_back(hc2p.GetOutputPulse()[i])
+  #  pwh.SetBinContent(i+1, hc2p.GetOutputPulse()[i])
        
   #print min(pw), len(pw), max(pw)
   #ppw = np.array(pw)
   #ppw = ppw*1e9
   #print ppw
   #plt.loglog(ppw)
-  c1 = TCanvas()
-  pwh.Draw()
-  c1.SetLogx()
-  c1.SetLogy()
-  pwh.Draw()
+  #c1 = TCanvas()
+  #pwh.Draw()
+  #c1.SetLogx()
+  #c1.SetLogy()
+  #pwh.Draw()
      
      
   #and replot the inverse-fourier transform of the windowed template pulse
-  hc2r.SetInputPulse(cham.GetTemplateSpectrum(chan))
-  hc2r.RunProcess()
-  newTemplate = std.vector("double")()
-  for i in range(hc2r.GetOutputPulseSize()):
-    newTemplate.push_back(hc2r.GetOutputPulse()[i])
-       
-  plt.plot(np.array(newTemplate))
+  #hc2r.SetInputPulse(cham.GetTemplateSpectrum(chan))
+  #hc2r.RunProcess()
+  #newTemplate = std.vector("double")()
+  #for i in range(hc2r.GetOutputPulseSize()):
+  #  newTemplate.push_back(hc2r.GetOutputPulse()[i])
+  #     
+  #plt.plot(np.array(newTemplate))
   
   #raw_input('... continue')
-  plt.cla()
-  del pwh
+  #plt.cla()
+  #del pwh
   
 
 
-scout(f,cham, chanList)
-kamp(f, cham, chanList)
+#scout(f,cham, chanList)
+#kamp(f, cham, chanList)
 #f.Close()
 
-#k = KAmpKounselor()
-#k.AddKAmpSite(cham)
-#for i in range(5):
-#  k.RunKamp('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.root' % i, '/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.amp.root' % i)
+
+k = KAmpKounselor()
+k.AddKAmpSite(cham)
+k.RunKamp('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.root' % filenum, '/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.amp.root' % filenum)
+
+  
 
 
 
