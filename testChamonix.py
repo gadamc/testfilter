@@ -293,14 +293,14 @@ for chan in chanList:
   
 
 
-#scout(f,cham, chanList)
-#kamp(f, cham, chanList)
-#f.Close()
+scout(f,cham, chanList)
+kamp(f, cham, chanList)
+f.Close()
 
 
-k = KAmpKounselor()
-k.AddKAmpSite(cham)
-k.RunKamp('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.root' % filenum, '/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.amp.root' % filenum)
+#k = KAmpKounselor()
+#k.AddKAmpSite(cham)
+#k.RunKamp('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.root' % filenum, '/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.amp.root' % filenum)
 
   
 
