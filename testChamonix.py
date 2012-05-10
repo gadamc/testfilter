@@ -201,11 +201,7 @@ s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
 #s = couchdbkit.Server('http://localhost:5984')
 db = s['pulsetemplates']
 
-filenum = int(sys.argv[1])
 
-
-#f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/ma14f004_000.root')
-f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.root' % filenum)
 
 #cham.GetHeatWindow().SetWindow(KWindowDesign.GetTukeyWindow(512,0.7), 512);
 
@@ -218,8 +214,8 @@ hc2p = KHalfComplexPower()
 hc2r = KHalfComplexToRealDFT()
 
 cham = KChamonixKAmpSite()
-cham.GetHeatPeakDetector().SetOrder(3)
-cham.GetHeatPeakDetector().SetNumRms(2.9)
+cham.GetHeatPeakDetector().SetOrder(4)  
+cham.GetHeatPeakDetector().SetNumRms(2.7) 
 
 
 for chan in chanList:
@@ -293,16 +289,29 @@ for chan in chanList:
   #del pwh
   
 
+#
+runname = sys.argv[1]
+filenum = int(sys.argv[2])
+display = False
+try:
+  if sys.argv[3] == 'display':
+    display = True
+except: pass
 
-scout(f,cham, chanList)
-kamp(f, cham, chanList)
-f.Close()
 
+if display:
+  f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/%s_%03d.root' % (runname, filenum))
+  scout(f,cham, chanList)
+  kamp(f, cham, chanList)
+  f.Close()
 
-#k = KAmpKounselor()
-#k.AddKAmpSite(cham)
-#k.RunKamp('/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.root' % filenum, '/Users/adam/analysis/edelweiss/data/kdata/raw/ma22a000_00%d.amp.root' % filenum)
-
+else:
+  k = KAmpKounselor()
+  k.AddKAmpSite(cham)
+  k.RunKamp('/Users/adam/analysis/edelweiss/data/kdata/raw/%s_%03d.root' % (runname, filenum), '/Users/adam/analysis/edelweiss/data/kdata/raw/%s_%03d.amp.root' % (runname, filenum))
+  for chan in chanList:
+    print chan
+    print cham.GetNumNoiseEventsFound(chan), 'noise events found'
   
 
 
