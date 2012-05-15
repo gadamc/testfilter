@@ -53,7 +53,7 @@ era.SetNumRms(2.3)
 era.SetPolarity(-1)  #tell the ERA peak finder to only look for negative polarity 
 
 #configure the pulsehsifter. this makes it easier to find the pulse peak position
-shiftVal = int(template_doc['formula']['rise_double_decay']['par'][0]/2.016 + 0.5) 
+shiftVal = int(template_doc['formula']['par'][0]/2.016 + 0.5) 
 pulseshift.SetShift(-1 * shiftVal )
 pulseshift.SetMode(2)
 
@@ -61,9 +61,9 @@ pulseshift.SetMode(2)
 #so make sure to convert properly between time and digitized sample number.
 print 'grabbing template from database'
 vp = std.vector("double")()
-exec( template_doc['formula']['rise_double_decay']['python'])  #defines 'template' function used in the following for-loop
+exec( template_doc['formula']['python'])  #defines 'template' function used in the following for-loop
 for i in range( 512 ):
-  vp.push_back( template(i * 2.016, template_doc['formula']['rise_double_decay']['par']))  #2.016 ms / sample
+  vp.push_back( template(i * 2.016, template_doc['formula']['par']))  #2.016 ms / sample
           
 scaleFactor = 1./abs(min(np.array(vp)))
 for i in range(vp.size()):

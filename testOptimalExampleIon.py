@@ -23,7 +23,7 @@ def get_in(pta):
 gSystem.Load('libkds')  
 gSystem.Load('libkpta')
 
-myChannel = 'ionisD FID807'
+myChannel = 'ionisA FID802'
 
 #s = Server('http://edwdbik.fzk.de:5984')
 s = Server('http://localhost:5984')
@@ -59,7 +59,7 @@ hc2p = KHalfComplexPower()
 optFilter = KOptimalFilter()
 window = KWindow()
 windesign = KWindowDesign()
-window.SetWindow( windesign.GetTukeyWindow(8192, 0.1), 8192)
+window.SetWindow( windesign.GetTukeyWindow(8192, 0.3), 8192)
 pulseshift = KPulseShifter()
 
 
@@ -71,7 +71,7 @@ era.SetPolarity( 0 )
 #era.SetPolarity(-1)  #tell the ERA peak finder to only look for negative polarity 
 
 #configure the pulsehsifter. this makes it easier to find the pulse peak position
-shiftVal = int(template_doc['formula']['single_decay']['par'][0] + 0.5) 
+shiftVal = int(template_doc['formula']['par'][0] ) 
 pulseshift.SetShift(-1 * shiftVal )
 pulseshift.SetMode(2)
 
@@ -79,16 +79,16 @@ pulseshift.SetMode(2)
 #so make sure to convert properly between time and digitized sample number.
 print 'grabbing template from database'
 vp = std.vector("double")()
-print template_doc['formula']['single_decay']['python']
-template_doc['formula']['single_decay']['par'][1] = polarity
-for i in range (len(template_doc['formula']['single_decay']['par'] )):
-  template_doc['formula']['single_decay']['par'][i] = float(template_doc['formula']['single_decay']['par'][i])
+print template_doc['formula']['python']
+template_doc['formula']['par'][1] = polarity
+for i in range (len(template_doc['formula']['par'] )):
+  template_doc['formula']['par'][i] = float(template_doc['formula']['par'][i])
   
-print template_doc['formula']['single_decay']['par']
+print template_doc['formula']['par']
 
-exec( template_doc['formula']['single_decay']['python'])  #defines 'template' function used in the following for-loop
+exec( template_doc['formula']['python'])  #defines 'template' function used in the following for-loop
 for i in range( 8192 ):
-  vp.push_back( template(i , template_doc['formula']['single_decay']['par']))  #2.016 ms / sample
+  vp.push_back( template(i , template_doc['formula']['par']))  #2.016 ms / sample
           
 print vp.size()
 
@@ -167,7 +167,7 @@ results['time'] = []
 
 
 
-for numnum in range(5):
+for numnum in range(20):
   filename = '/Users/adam/analysis/edelweiss/data/kdata/raw/%s_%03d.root' % (runname, numnum)
   f = KDataReader(filename)
   e = f.GetEvent()

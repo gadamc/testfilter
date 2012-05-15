@@ -54,8 +54,8 @@ def kamp(f, cham, channels):
           
         print 'Entry', ii, p.GetChannelName()
         
-        #s = couchdbkit.Server('http://localhost:5984')
-        s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
+        s = couchdbkit.Server('http://localhost:5984')
+        #s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
         db = s['pulsetemplates']
         
         pulse = p.GetTrace()
@@ -171,10 +171,10 @@ def kamp(f, cham, channels):
         baspulse = get_out(bas)
           
         plt.plot(baspulse)
-        #s = couchdbkit.Server('http://localhost:5984')
-        s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
+        s = couchdbkit.Server('http://localhost:5984')
+        #s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
         db = s['pulsetemplates']
-        vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[p.GetChannelName(), "2012-01-22 00:00:00.0"], limit=1, include_docs=True)
+        vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[p.GetChannelName(), "2012-01-12 00:00:00.0"], limit=1, include_docs=True)
         doc = vr.first()['doc']
         vp = std.vector("double")()
         exec(doc['formula']['python']) #defines 'template' function
@@ -182,8 +182,13 @@ def kamp(f, cham, channels):
         #doc['formula']['par'][3] = doc['formula']['par'][3]/2.016
         #doc['formula']['par'][5] = doc['formula']['par'][5]/2.016
         #doc['formula']['par'][0]=300  #put it close to zero, but away from the windowing function
+        doc['formula']['par'][2] = float(doc['formula']['par'][2])/2.
+        
+        for i in range(len(doc['formula']['par'])):
+          doc['formula']['par'][i] = float(doc['formula']['par'][i])
+        
         for i in range( 512 ):
-          vp.push_back( template(i*2.016, doc['formula']['par']))
+          vp.push_back( template(i, doc['formula']['par']))
           
         #plot the pulse templates for documentation
         scaleFactor = abs(min(np.array(winpulse)))/abs(min(np.array(vp)))
@@ -197,15 +202,16 @@ def kamp(f, cham, channels):
         
         raw_input()
 
-s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
-#s = couchdbkit.Server('http://localhost:5984')
+#s = couchdbkit.Server('https://edwdbik.fzk.de:6984')
+s = couchdbkit.Server('http://localhost:5984')
 db = s['pulsetemplates']
 
 
 
 #cham.GetHeatWindow().SetWindow(KWindowDesign.GetTukeyWindow(512,0.7), 512);
 
-chanList = ["chalA FID807", "chalB FID807", "chalA FID808", "chalB FID808"]
+chanList = ["chalA Gc1", "chalB Gc1", "chalA Gc2", "chalB Gc2"]
+#chanList = ["chalA FID807", "chalB FID807", "chalA FID808", "chalB FID808", "chalA Gc1", "chalB Gc1", "chalA Gc2", "chalB Gc2"]
 #chanList = ["chalA FID803", "chalB FID803", "chalA FID806", "chalB FID806"]
 #chanList = ["chalA FID802", "chalB FID802", "chalA FID804", "chalB FID804"]
 #803 and 806 are on S5 (e) and 802 and 804 are on S6 (f)
@@ -214,14 +220,14 @@ hc2p = KHalfComplexPower()
 hc2r = KHalfComplexToRealDFT()
 
 cham = KChamonixKAmpSite()
-cham.GetHeatPeakDetector().SetOrder(4)  
-cham.GetHeatPeakDetector().SetNumRms(2.7) 
+cham.GetHeatPeakDetector().SetOrder(5)  
+cham.GetHeatPeakDetector().SetNumRms(2.0) 
 
 
 for chan in chanList:
   print chan
   
-  vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[chan, "2012-01-22 00:00:00.0"], limit=1, include_docs=True)
+  vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[chan, "2012-01-10 00:00:00.0"], limit=1, include_docs=True)
   doc = vr.first()['doc']
   vp = std.vector("double")()
   #print json.dumps(doc, indent=1)
@@ -230,11 +236,15 @@ for chan in chanList:
   #doc['formula']['par'][5] = doc['formula']['par'][5]/2.016
   
   exec(doc['formula']['python']) #defines 'template' function
+  for i in range(len(doc['formula']['par'])):
+    doc['formula']['par'][i] = float(doc['formula']['par'][i])
+  
+  doc['formula']['par'][2] = float(doc['formula']['par'][2])/2.
   
   #doc['formula']['par'][0]=300  #put it close to zero, but away from the windowing function
   for i in range( 512 ):
     #print i, template(i*2.016, doc['formula']['par'])
-    vp.push_back( template(i*2.016, doc['formula']['par']))
+    vp.push_back( template(i, doc['formula']['par']))
     
   #plot the pulse templates for documentation
   #plt.plot(np.array(vp))
@@ -250,7 +260,7 @@ for chan in chanList:
   #plt.plot(np.array(vp))
   #raw_input('... continue')
   
-  cham.GetPulseTemplateShifter().SetShift(-1 * int(doc['formula']['par'][0]/2.016 + 0.5) )
+  cham.GetPulseTemplateShifter().SetShift(-1 * int(doc['formula']['par'][0]) )
   cham.SetTemplate(chan, vp)
   #cham.SetTrapDecayConstant(chan, doc['formula']['par'][3])
   

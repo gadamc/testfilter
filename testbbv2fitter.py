@@ -43,6 +43,12 @@ era = KEraPeakFinder();
 r2hc = KRealToHalfComplexDFT()
 hc2r = KHalfComplexToRealDFT()
 hcp = KHalfComplexPower()
+pat2 = KPatternRemoval()
+pat2.SetPatternLength(6)
+pat3 = KPatternRemoval()
+pat3.SetPatternLength(100)
+pat = KPatternRemoval()
+pat.SetPatternLength(10)
 window = KWindow()
 windesign = KWindowDesign()
 window.SetWindow( windesign.GetTukeyWindow(8192, 0.1), 8192)
@@ -52,6 +58,9 @@ polCalc = KPulsePolarityCalculator()
 bbv2 = KBBv2TimeDomainFitKamper()
 preProc = KPulseAnalysisChain()
 preProc.AddProcessor(lin)
+preProc.AddProcessor(pat3)
+preProc.AddProcessor(pat2)
+preProc.AddProcessor(pat)
 preProc.AddProcessor(window)
 preProc.AddProcessor(r2hc)
 preProc.AddProcessor(whit)  
@@ -86,14 +95,21 @@ for i in range(f.GetEntries()):
     if p.GetPulseLength() == 0 or p.GetChannelName() != myChannel: continue  #skip empty pulses
               
     lin.SetInputPulse( p.GetTrace()  )
-    lin.RunProcess()    
-    era.SetInputPulse( lin )
+    lin.RunProcess()   
+    pat3.SetInputPulse( lin )
+    pat3.RunProcess()
+    pat2.SetInputPulse( pat3 ) 
+    pat2.RunProcess()
+    pat.SetInputPulse( pat2 ) 
+    pat.RunProcess()
+    era.SetInputPulse( pat )
     era.SetPolarity(polCalc.GetExpectedPolarity(p)) 
     era.RunProcess()
+    #print era.GetPeakBins().size()
     if era.GetPeakBins().size() > 0:  continue  #skip pulse if we didn't find a noise pulse
       
     #applying windowing and then calculate spectrum
-    npChain.SetInputPulse( lin )
+    npChain.SetInputPulse( pat )
     if npChain.RunProcess() == False:
       print 'excusez-moi... ' #this shouldn't fail
       continue
@@ -131,17 +147,23 @@ for i in range(f.GetEntries()):
     rec = KPulseAnalysisRecord()  
     bbv2.MakeKamp(p, rec)
     
-    plt.subplot(3,1,1)
+    plt.subplot(4,1,1)
     plt.cla()
     plt.plot(np.array( p.GetTrace() ))
     plt.title('raw')
     
-    plt.subplot(3,1,2)
+    plt.subplot(4,1,2)
     plt.cla()
     plt.plot( get_out(lin) )
     plt.title('lin')
     
-    plt.subplot(3,1,3)
+    plt.subplot(4,1,3)
+    plt.cla()
+    plt.plot( get_out(pat) )
+    plt.title('pat')
+    
+    
+    plt.subplot(4,1,4)
     plt.cla()
     plt.plot( get_out(hc2r) )
     plt.title('hc2r')
