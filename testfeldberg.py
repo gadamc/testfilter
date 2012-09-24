@@ -60,26 +60,16 @@ def SetParameters(kampsite, serverurl, config, dataFile):
       #print delta_t, width, pretrigger
       #print filters
       
-      doc_template = vr_template.first()['doc']
-      if 'rise_double_decay' in doc_template['formula'].keys():
-        funct = 'rise_double_decay'
-      elif 'single_decay' in doc_template['formula'].keys():
-        funct = 'single_decay'
-      else:
-        print "No known template function found!"
-        
-      exec(doc_template['formula'][funct]['python'])
+      doc_template = vr_template.first()['doc']   
+      exec(doc_template['formula']['python'])
        
-      #!!! workaround for heat templates in ms scale, needs to be removed in the future
       templatePulse = ROOT.std.vector("double")() 
-      par = doc_template['formula'][funct]['par']
-      if funct == 'rise_double_decay':          
-        par[0] /= 2.016
-        par[2] /= 2.016
-        par[3] /= 2.016
-        par[5] /= 2.016
+      par = doc_template['formula']['par']
+      timeFactor = 1
+      if doc_template['formula_type'] == 'rise_double_decay':          
+        timeFactor = 2.016 #!!! workaround for heat templates in ms scale, needs to be automated in the future
       for i in range(chanList[chan]):
-        templatePulse.push_back(template(i,par))
+        templatePulse.push_back(template(i * timeFactor, par))
       #print "Template for ",chan,":",np.array(templatePulse)
       
       kampsite.SetNormalizeTemplate(True)
