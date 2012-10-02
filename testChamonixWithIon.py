@@ -13,22 +13,29 @@ plt.ion()
 
 def scout(f, kamp, channels):
 
-  # e = f.GetEvent()
-  # for i in range(f.GetEntries()):
-  #   f.GetEntry(i)
-  #   if operator.mod(i,100) == 0: print i
-  #   for j in range(e.GetNumBoloPulses()):
-  #     p = e.GetBoloPulse(j)
-  #     if p.GetChannelName() not in channels:
-  #       continue
-  #     kamp.ScoutKampSite( e.GetBoloPulse(j) ,e)
-
   for e in f:
     if operator.mod(f.GetCurrentEntryNumber(),100) == 0: print f.GetCurrentEntryNumber()
 
     for p in e.boloPulseRecords():
       if p.GetChannelName() not in channels: continue
       kamp.ScoutKampSite( p ,e)      
+
+
+def getPulseInfo(chan):
+  pulseLength = 512
+  binSize = 2.016
+  min = -2
+  max = 50
+  type = 0
+
+  if chan.startswith("ion"):
+    pulseLength = 8192
+    binSize = 1.0
+    min = 0
+    max = 600
+    type  = 1
+
+  return (pulseLength, binSize, min, max, type)
 
 
 def kamp(p, pta, **kwargs):
@@ -38,13 +45,16 @@ def kamp(p, pta, **kwargs):
   cham = kwargs["chamonix"]
   hc2p = kwargs["halfcomp2power"]
   r2hc = kwargs["real2halfcomp"]
+  pulsePol = kwargs['pulsePol']
+  pulseLength, binSize, minSearch, maxSearch, _pulsetype = getPulseInfo(p.GetChannelName())
+
+  db = kwargs['templateDB']
 
   if p.GetChannelName() not in channels: 
     return None
           
   print 'Entry', f.GetCurrentEntryNumber(), p.GetChannelName()
         
-  db = kdb.pulsetemplates('')
         
   pulse = p.GetTrace()
         
@@ -60,17 +70,34 @@ def kamp(p, pta, **kwargs):
   optFilter.SetToRecalculate()
   #optFilter.BuildFilter()
   
-  optKamper.SetWindow(cham.GetHeatWindow())
-  optKamper.SetPreProcessor(cham.GetHeatPreProcessor())
-  
-  optKamper.SetPulseTemplateShiftFromPreTrigger( cham.GetPulseTemplateShifter().GetShift() );
+  if p.GetIsHeatPulse():
+    optKamper.SetWindow(cham.GetHeatWindow())
+    optKamper.SetPreProcessor(cham.GetHeatPreProcessor())
+    win = cham.GetHeatWindow()
+    preproc= cham.GetHeatPreProcessor()
 
+  elif p.GetBoloBoxVersion() > 1.9:
+    optKamper.SetWindow(cham.GetIonWindow())
+    optKamper.SetPreProcessor(cham.GetBBv2IonPreProcessor())
+    win = cham.GetIonWindow()
+    preproc= cham.GetBBv2IonPreProcessor()
+  else:
+    optKamper.SetWindow(cham.GetIonWindow())
+    optKamper.SetPreProcessor(cham.GetBBv1IonPreProcessor())
+    win = cham.GetIonWindow()
+    preproc= cham.GetBBv1IonPreProcessor()
+
+  optKamper.SetPulseTemplateShiftFromPreTrigger( cham.GetTemplateShift(p.GetChannelName()) );
+  optKamper.SetAmplitudeEstimatorSearchRangeMax(maxSearch)
+  optKamper.SetAmplitudeEstimatorSearchRangeMin(minSearch)
+
+  plt.figure(1)
   plt.subplot(7,1,1)
   plt.cla()
   plt.plot(np.array(pulse))
   plt.title('raw')
   
-  win = cham.GetHeatWindow()        
+          
   
   plt.subplot(7,1,2)
   plt.cla()
@@ -78,9 +105,14 @@ def kamp(p, pta, **kwargs):
   plt.title('window')
   
   #winpulse = std.vector("double")()
-  #winpulse.resize(win.GetOutputPulseSize())
+  #winpulse.reserve(win.GetOutputPulseSize())
   #for i in range(winpulse.size()):
   #  winpulse[i] = win.GetOutputPulse()[i]
+  
+  preproc.SetInputPulse(pulse)
+  preproc.RunProcess()
+  win.SetInputPulse(preproc)
+  win.RunProcess()
   winpulse = kutil.get_out(win)
   plt.subplot(7,1,3)
   plt.cla()
@@ -103,31 +135,22 @@ def kamp(p, pta, **kwargs):
   plt.loglog(npp)
   plt.loglog(tempPower)
 
-  raw_input('hit enter to run filter....')
+  #raw_input('hit enter to run filter....')
+
+  #wait, doesn't the optKamper do this?
+  #r2hc.SetInputPulse(win)
+  #r2hc.RunProcess()
+  #optFilter.SetInputPulse(r2hc)
+  #optFilter.BuildFilter()
+
   optFilterResults = optKamper.MakeKamp(p)
   
-  kernel = kutil.get_out(optFilter)
+  kernel = kutil.get_as_nparray(optFilter.GetOptimalFilter(), optFilter.GetOptimalFilterSize())
 
-  # kernel = std.vector("double")()
-  # kernel.resize(optFilter.GetOptimalFilterSize())
-  # for i in range(kernel.size()):
-  #   kernel[i] = optFilter.GetOptimalFilter()[i]
-    
   hc2p.SetInputPulse(kernel, len(kernel))
   hc2p.RunProcess()
   kernelPower = kutil.get_out(hc2p)
   
- 
-  # plt.loglog(np.array(noisePower[:len(noisePower)-1]))
-  #         plt.loglog(np.array(tempPower[:len(tempPower)-1]))
-  #         plt.loglog(np.array(kernelPower[:len(kernelPower)-1]))
-  # print npp 
-  #         print kpp
-  #         print len(npp)
-  #         print len(kpp)
-  #         print 
-  #plt.loglog(npp)
-  #plt.loglog(tempPower)
   plt.loglog(kernelPower)
   plt.title('filter power')
   
@@ -157,48 +180,59 @@ def kamp(p, pta, **kwargs):
   plt.plot(np.array(chi2))
   plt.title('chi squared')
   plt.show()
-  raw_input()
+  #raw_input()
   
-  
-  plt.subplot(1,1,1)
+  plt.figure(2)
+  #plt.subplot(1,1,1)
   plt.cla()
-  
-  bas = cham.GetBaselineRemovalHeat()
-  baspulse = kutil.get_out(bas)
     
-  plt.plot(baspulse)
-  db = kdb.pulsetemplates('')
+  plt.plot(winpulse)
+
   vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[p.GetChannelName(), "2012-01-22 00:00:00.0"], limit=1, include_docs=True)
   doc = vr.first()['doc']
   vp = std.vector("double")()
+  vp.reserve(pulseLength)
   exec(doc['formula']['python']) #defines 'template' function
   #doc['formula']['par'][2] = doc['formula']['par'][2]/2.016
   #doc['formula']['par'][3] = doc['formula']['par'][3]/2.016
   #doc['formula']['par'][5] = doc['formula']['par'][5]/2.016
   #doc['formula']['par'][0]=300  #put it close to zero, but away from the windowing function
-  for i in range( 512 ):
-    vp.push_back( template(i*2.016, doc['formula']['par']))
+  for i in range( pulseLength ):
+    vp.push_back( template(i*binSize, doc['formula']['par']))
     
   #plot the pulse templates for documentation
-  scaleFactor = abs(min(np.array(winpulse)))/abs(min(np.array(vp)))
-  print 'scaling by', scaleFactor
+  thePolarity = pulsePol.GetExpectedPolarity(p)
+  scaleFactor = thePolarity*max(abs(np.array(winpulse)))/max(abs(np.array(vp)))
+  optScaleFactor = thePolarity*optFilterResults['amp'].fValue/max(abs(np.array(vp)))
+  print 'simple scaling by', scaleFactor
+  print 'opt filter scaling by at amp', optScaleFactor
   print vp.size(), vp[i], vp[vp.size()-1], vp[i]*scaleFactor
+  optPulse = std.vector("double")()
+  optPulse.resize(vp.size())
+  diffPulse = std.vector("double")()
+  diffPulse.resize(vp.size())
 
   for i in range(vp.size()):
+    optPulse[i] = optScaleFactor * vp[i]
     vp[i] = scaleFactor * vp[i]
+    diffPulse[i] = optPulse[i] - vp[i]
 
   plt.plot(np.array(vp))
+  plt.plot(np.array(optPulse))
+  #plt.plot(np.array(diffPulse))
   
+  print 'optimal filter results'
+  for key, val in optFilterResults:
+    print key, val.fValue, val.fUnit
   raw_input()
 
 
-db = kdb.pulsetemplates('')
-
-
+db = kdb.pulsetemplates()
 
 #cham.GetHeatWindow().SetWindow(KWindowDesign.GetTukeyWindow(512,0.7), 512);
 
-chanList = ["chalA FID807", "chalB FID807", "chalA FID808", "chalB FID808"]
+#chanList = ["chalA FID807", "chalB FID807", "chalA FID808", "chalB FID808"]
+chanList = ["chalA FID807", "chalB FID807", "ionisA FID807", "ionisB FID807", "ionisC FID807", "ionisD FID807"]
 #chanList = ["chalA FID803", "chalB FID803", "chalA FID806", "chalB FID806"]
 #chanList = ["chalA FID802", "chalB FID802", "chalA FID804", "chalB FID804"]
 #803 and 806 are on S5 (e) and 802 and 804 are on S6 (f)
@@ -206,15 +240,18 @@ chanList = ["chalA FID807", "chalB FID807", "chalA FID808", "chalB FID808"]
 hc2p = KHalfComplexPower()
 hc2r = KHalfComplexToRealDFT()
 r2hc = KRealToHalfComplexDFT()
+pulsePol = KPulsePolarityCalculator()
 
 cham = KChamonixKAmpSite()
-cham.GetHeatPeakDetector().SetOrder(4)  
-cham.GetHeatPeakDetector().SetNumRms(2.7) 
+cham.GetBBv1IonPeakDetector().SetOrder(2)  
+cham.GetBBv1IonPeakDetector().SetNumRms(6.5) 
+cham.NeedScout(True)
 
 
 for chan in chanList:
   print chan
-  
+  pulseLength, binSize, _blah, _blah2, pulseType = getPulseInfo(chan)
+
   vr = db.view('analytical/bychandate',reduce=False, descending=True, startkey=[chan, "2012-01-22 00:00:00.0"], limit=1, include_docs=True)
   doc = vr.first()['doc']
   vp = std.vector("double")()
@@ -222,20 +259,20 @@ for chan in chanList:
   exec(doc['formula']['python']) #defines 'template' function
   
   #doc['formula']['par'][0]=300  #put it close to zero, but away from the windowing function
-  for i in range( 512 ):
-    vp.push_back( template(i*2.016, doc['formula']['par']))
-  
-  
-  scaleFactor = 1./abs(min(np.array(vp)))
+  for i in range( pulseLength ):
+    vp.push_back( -1*template(i*binSize, doc['formula']['par']))
+
+  scaleFactor = 1./max(abs(np.array(vp)))
+
   print 'scaling by', scaleFactor
   
   for i in range(vp.size()):
     vp[i] = scaleFactor * vp[i]
     
-  #plt.plot(np.array(vp))
+  plt.plot(np.array(vp))
   #raw_input('... continue')
   
-  cham.SetTemplate(chan, vp, -1 * int(doc['formula']['par'][0]/2.016 + 0.5), 0)
+  cham.SetTemplate(chan, vp, -1 * int(doc['formula']['par'][0]/binSize+ 0.5), pulseType)
   
   #plot the power spectrum
   hc2p.SetInputPulse(cham.GetTemplateSpectrum(chan))
@@ -246,10 +283,10 @@ for chan in chanList:
     pwh.SetBinContent(i+1, hc2p.GetOutputPulse()[i])
        
   c1 = TCanvas()
-  #pwh.Draw()
+  pwh.Draw()
   c1.SetLogx()
   c1.SetLogy()
-  #pwh.Draw()
+  pwh.Draw()
      
      
   #and replot the inverse-fourier transform of the windowed template pulse
@@ -262,7 +299,7 @@ for chan in chanList:
   plt.plot(np.array(newTemplate))
   
   #raw_input('... continue')
-  #plt.cla()
+  plt.cla()
   del pwh
   
 
@@ -280,7 +317,9 @@ if display:
   f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/%s_%03d.root' % (runname, filenum))
   scout(f,cham, chanList)
 
-  kutil.looppulse(f, name=None, pta=None, analysisFunction = kamp, kdatafile=f, channellist=chanList, chamonix=cham, halfcomp2power=hc2p, real2halfcomp=r2hc)
+  kutil.looppulse(f, name=None, pta=None, analysisFunction = kamp, kdatafile=f, channellist=chanList, 
+    chamonix=cham, halfcomp2power=hc2p, real2halfcomp=r2hc, templateDB=db, pulsePol=pulsePol)
+
   #kamp(f, cham, chanList)
   f.Close()
 
