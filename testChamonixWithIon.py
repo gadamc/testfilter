@@ -11,14 +11,16 @@ import KDataPy.database as kdb
 plt.ion()
 
 
-def scout(f, kamp, channels):
+def scout(f, kamp, channels, maxEvents=None):
 
   for e in f:
     if operator.mod(f.GetCurrentEntryNumber(),100) == 0: print f.GetCurrentEntryNumber()
 
     for p in e.boloPulseRecords():
       if p.GetChannelName() not in channels: continue
-      kamp.ScoutKampSite( p ,e)      
+      kamp.ScoutKampSite( p ,e)   
+
+    if maxEvents and f.GetCurrentEntryNumber() >= maxEvents: return   
 
 
 def getPulseInfo(chan):
@@ -201,7 +203,8 @@ def kamp(p, pta, **kwargs):
     vp.push_back( template(i*binSize, doc['formula']['par']))
     
   #plot the pulse templates for documentation
-  thePolarity = pulsePol.GetExpectedPolarity(p)
+  if p.GetChannelName().startswith('chal'): thePolarity = 1 #template heat pulses are already negative polarity
+  else: thePolarity = pulsePol.GetExpectedPolarity(p)
   scaleFactor = thePolarity*max(abs(np.array(winpulse)))/max(abs(np.array(vp)))
   optScaleFactor = thePolarity*optFilterResults['amp'].fValue/max(abs(np.array(vp)))
   print 'simple scaling by', scaleFactor
@@ -247,6 +250,22 @@ cham.GetBBv1IonPeakDetector().SetOrder(2)
 cham.GetBBv1IonPeakDetector().SetNumRms(6.5) 
 cham.NeedScout(True)
 
+#
+runname = sys.argv[1]
+filenum = int(sys.argv[2])
+display = False
+try:
+  if sys.argv[3] == 'display':
+    display = True
+except: pass
+
+f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/%s_%03d.root' % (runname, filenum))
+
+def getPulseRecord(kdatareader, channelName):
+  for p in kdatareader.GetEvent().boloPulseRecords():
+    if p.GetChannelName() == channelName: return p
+  return None
+
 
 for chan in chanList:
   print chan
@@ -259,8 +278,11 @@ for chan in chanList:
   exec(doc['formula']['python']) #defines 'template' function
   
   #doc['formula']['par'][0]=300  #put it close to zero, but away from the windowing function
+  if chan.startswith("chal") == False: aPol = pulsePol.GetExpectedPolarity( getPulseRecord(f,chan))
+  else: aPol = 1  #heat pulses are already negative polarity in the database. should i change this??
+  print chan, aPol
   for i in range( pulseLength ):
-    vp.push_back( -1*template(i*binSize, doc['formula']['par']))
+    vp.push_back( aPol*template(i*binSize, doc['formula']['par']))
 
   scaleFactor = 1./max(abs(np.array(vp)))
 
@@ -298,26 +320,18 @@ for chan in chanList:
        
   plt.plot(np.array(newTemplate))
   
-  #raw_input('... continue')
+  raw_input('... continue')
   plt.cla()
   del pwh
   
 
-#
-runname = sys.argv[1]
-filenum = int(sys.argv[2])
-display = False
-try:
-  if sys.argv[3] == 'display':
-    display = True
-except: pass
 
 
 if display:
-  f = KDataReader('/Users/adam/analysis/edelweiss/data/kdata/raw/%s_%03d.root' % (runname, filenum))
-  scout(f,cham, chanList)
 
-  kutil.looppulse(f, name=None, pta=None, analysisFunction = kamp, kdatafile=f, channellist=chanList, 
+  scout(f,cham, chanList,maxEvents=1000)
+
+  kutil.looppulse(f, name=None, pta=None, analysisFunction = kamp, maxEvents=1000, kdatafile=f, channellist=chanList, 
     chamonix=cham, halfcomp2power=hc2p, real2halfcomp=r2hc, templateDB=db, pulsePol=pulsePol)
 
   #kamp(f, cham, chanList)
